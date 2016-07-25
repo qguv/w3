@@ -22,7 +22,7 @@
 ###############################################################################
 
 TMPDIR = '/tmp/w3'
-VERSION = '0.0.1-will-break-computer-edition'
+VERSION = '0.1.0' # will probably not break computer, but may break weechat
 
 from configparser import RawConfigParser, DuplicateSectionError, DEFAULTSECT
 from os import getenv
@@ -151,12 +151,12 @@ if __name__ == '__main__':
 
     # create a directory where weechat can safely vomit its defaults
     clean = real_weechat_dir()
-    dirty = tmpdir / 'dirty'
+    dirty = tmpdir / 'running'
     cp_tree(clean, dirty)
 
     # create a snapshot of the dirty directory after weechat starts, before we
     # get the chance to interactively modify any settings
-    snapshot = tmpdir / 'at_start'
+    snapshot = tmpdir / 'snapshot'
     snapshotter = Thread(target=make_sneaky_copy, args=(dirty, snapshot))
     snapshotter.start()
 
