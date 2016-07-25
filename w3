@@ -1,0 +1,164 @@
+#!/usr/bin/env python3
+# w3: the wee weechat wrapper
+#
+# weechat vomits configuration defaults all over your config dir. this has
+# several disadvantages:
+#
+#   - harder to keep files in version control
+#   - impossible to tell what options you've set
+#   - harder to find relevant settings
+#   - users don't inherit changes in default settings
+#   - there are defaults all over your config dir
+#
+# it difficult to keep your preferences in vc. w3 scans for any configuration
+# options that have changed since the last time weechat was started and saves
+# them AND ONLY THEM. note that this also has several disadvantages:
+#
+#   - comments are ripped off without remorse
+#   - injects -d and -r into weechat command
+#   - harder to find similar settings (since not all settings are written)
+#   - config files are re-parsed (spacing is different, for example)
+#   - bugs?
+###############################################################################
+
+TMPDIR = '/tmp/w3'
+VERSION = '0.0.1-will-break-computer-edition'
+
+# set of filename-section-key triples
+IGNORE = [('weechat.conf', 'bar', 'buffers.hidden')]
+
+from configparser import RawConfigParser, DuplicateSectionError, DEFAULTSECT
+from os import getenv
+from pathlib import Path
+from subprocess import check_call, call, DEVNULL
+from sys import exit
+from threading import Thread
+from time import sleep
+
+def cp(src, dest):
+    check_call(['install', '-D', str(src), str(dest)])
+
+def rm_tree(tree):
+    check_call(['rm', '-rf', str(tree)])
+
+def cp_tree(src, dest):
+    '''Replaces dest with a copy of src.'''
+    rm_tree(dest)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    check_call(['cp', '-r', str(src), str(dest)])
+
+def files_differ(a, b):
+    return bool(call(['diff', str(a), str(b)], stdout=DEVNULL))
+
+def xdg_config_home():
+    xdg_config_home = Path(getenv('XDG_CONFIG_HOME'))
+    if xdg_config_home is None:
+        xdg_config_home = Path(getenv('HOME')) / '.config'
+    return xdg_config_home
+
+def real_weechat_dir():
+    weechat_home = xdg_config_home() / 'weechat'
+    weechat_home.mkdir(parents=True, exist_ok=True)
+    return weechat_home
+
+def weechat(weechat_home):
+    call(['weechat', '-d', str(weechat_home), '-r', '/save'])
+
+def make_sneaky_copy(live_dir, freeze_dir):
+    sleep(2)
+    cp_tree(live_dir, freeze_dir)
+
+def set_config_line(config, section, key, value):
+    try:
+        config.add_section(section)
+    except DuplicateSectionError:
+        pass
+    config.set(section, key, value)
+
+def WeechatConfigParser(in_file):
+
+    # weechat's formatting specification
+    wcp = RawConfigParser(delimiters=['='], comment_prefixes=['#'],
+                          allow_no_value=True, interpolation=None,
+                          empty_lines_in_values=False)
+
+    # keys should be case-sensitive
+    wcp.optionxform = lambda x: x
+    if in_file.exists():
+        wcp.read(str(in_file))
+    return wcp
+
+def check_ignore(filename, section, key):
+    return any([ (filename, section, key) == match for match in IGNORE ])
+
+def patch_changed_lines(before_file, after_file, change_file):
+    before = WeechatConfigParser(before_file)
+    after  = WeechatConfigParser(after_file)
+    change = WeechatConfigParser(change_file)
+
+    for section, settings in after.items():
+
+        if section == DEFAULTSECT:
+            continue
+
+        # new section
+        if not before.has_section(section):
+            print("- new section {}".format(section))
+            change[section] = after[section]
+            continue
+
+        # modified section
+        section_modified = False
+        for key, value in settings.items():
+            if check_ignore(after_file.name, section, key):
+                print("  - ignoring key '{}.{}' with value '{}'".format(section, key, value))
+                continue
+            if key not in before[section]:
+                print("  - new key '{}.{}' with value '{}'".format(section, key, value))
+                section_modified = True
+                set_config_line(change, section, key, value)
+            elif value != before.get(section, key):
+                print("  - new value '{}' for key '{}.{}'".format(value, section, key))
+                section_modified = True
+                set_config_line(change, section, key, value)
+
+    with change_file.open('w') as f:
+        change.write(f, space_around_delimiters=True)
+
+def patch_changed_config_dirs(before, after, change):
+    files = [ f.relative_to(after) for f in after.rglob('*.conf') if f.is_file() ]
+    for f in files:
+        if not (before / f).exists():
+            print('\nnew file {} added'.format(f))
+            cp(after / f, change / f)
+            continue
+        if files_differ(before / f, after / f):
+            print('changes in {}:'.format(f))
+            patch_changed_lines(before / f, after / f, change / f)
+
+if __name__ == '__main__':
+    tmpdir = Path(TMPDIR)
+    rm_tree(tmpdir)
+
+    # create a directory where weechat can safely vomit its defaults
+    clean = real_weechat_dir()
+    dirty = tmpdir / 'dirty'
+    cp_tree(clean, dirty)
+
+    # create a snapshot of the dirty directory after weechat starts, before we
+    # get the chance to interactively modify any settings
+    snapshot = tmpdir / 'at_start'
+    snapshotter = Thread(target=make_sneaky_copy, args=(dirty, snapshot))
+    snapshotter.start()
+
+    weechat(dirty)
+    quick_exit = snapshotter.is_alive()
+    if quick_exit:
+        print('Weechat exited too quickly. Config not patched. Sit tight...')
+    snapshotter.join()
+
+    if not quick_exit:
+        patch_changed_config_dirs(snapshot, dirty, clean)
+
+    rm_tree(tmpdir)
+    exit(1 if quick_exit else 0)
