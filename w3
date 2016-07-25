@@ -91,6 +91,9 @@ def WeechatConfigParser(in_file):
 def check_ignore(filename, section, key):
     return any([ (filename, section, key) == match for match in IGNORE ])
 
+def truncate_file(filename):
+    check_call(['truncate', '--size=-1', str(filename)])
+
 def patch_changed_lines(before_file, after_file, change_file):
     before = WeechatConfigParser(before_file)
     after  = WeechatConfigParser(after_file)
@@ -124,6 +127,7 @@ def patch_changed_lines(before_file, after_file, change_file):
 
     with change_file.open('w') as f:
         change.write(f, space_around_delimiters=True)
+    truncate_file(change_file)
 
 def patch_changed_config_dirs(before, after, change):
     files = [ f.relative_to(after) for f in after.rglob('*.conf') if f.is_file() ]
@@ -133,7 +137,7 @@ def patch_changed_config_dirs(before, after, change):
             cp(after / f, change / f)
             continue
         if files_differ(before / f, after / f):
-            print('changes in {}:'.format(f))
+            print('\nchanges in {}:'.format(f))
             patch_changed_lines(before / f, after / f, change / f)
 
 if __name__ == '__main__':
