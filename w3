@@ -24,9 +24,6 @@
 TMPDIR = '/tmp/w3'
 VERSION = '0.0.1-will-break-computer-edition'
 
-# set of filename-section-key triples
-IGNORE = [('weechat.conf', 'bar', 'buffers.hidden')]
-
 from configparser import RawConfigParser, DuplicateSectionError, DEFAULTSECT
 from os import getenv
 from pathlib import Path
@@ -62,7 +59,7 @@ def real_weechat_dir():
     return weechat_home
 
 def weechat(weechat_home):
-    call(['weechat', '-d', str(weechat_home), '-r', '/save'])
+    call(['weechat', '-d', str(weechat_home), '-r', '/save; /buffer clear'])
 
 def make_sneaky_copy(live_dir, freeze_dir):
     sleep(2)
@@ -88,13 +85,16 @@ def WeechatConfigParser(in_file):
         wcp.read(str(in_file))
     return wcp
 
-def check_ignore(filename, section, key):
-    return any([ (filename, section, key) == match for match in IGNORE ])
-
 def truncate_file(filename):
     check_call(['truncate', '--size=-1', str(filename)])
 
-def patch_changed_lines(before_file, after_file, change_file):
+def log(text, header):
+    if header:
+        print(header)
+    print(text)
+    return ''
+
+def patch_changed_lines(before_file, after_file, change_file, header=''):
     before = WeechatConfigParser(before_file)
     after  = WeechatConfigParser(after_file)
     change = WeechatConfigParser(change_file)
@@ -106,23 +106,26 @@ def patch_changed_lines(before_file, after_file, change_file):
 
         # new section
         if not before.has_section(section):
-            print("- new section {}".format(section))
+            header = log("- new section {}".format(section), header)
             change[section] = after[section]
             continue
 
         # modified section
-        section_modified = False
         for key, value in settings.items():
-            if check_ignore(after_file.name, section, key):
-                print("  - ignoring key '{}.{}' with value '{}'".format(section, key, value))
+
+            # if change already registered in config dir, ignore it
+            if change.has_option(section, key) and value == change.get(section, key):
                 continue
+
+            # if key is new to this execution, save it
             if key not in before[section]:
-                print("  - new key '{}.{}' with value '{}'".format(section, key, value))
-                section_modified = True
+                m = "  - new key '{}.{}' with value '{}'"
+                header = log(m.format(section, key, value), header)
                 set_config_line(change, section, key, value)
+
+            # if value is new to this section, save it
             elif value != before.get(section, key):
-                print("  - new value '{}' for key '{}.{}'".format(value, section, key))
-                section_modified = True
+                header = log("  - new value '{}' for key '{}.{}'".format(value, section, key), header)
                 set_config_line(change, section, key, value)
 
     with change_file.open('w') as f:
@@ -132,13 +135,15 @@ def patch_changed_lines(before_file, after_file, change_file):
 def patch_changed_config_dirs(before, after, change):
     files = [ f.relative_to(after) for f in after.rglob('*.conf') if f.is_file() ]
     for f in files:
+
         if not (before / f).exists():
-            print('\nnew file {} added'.format(f))
+            print('new file {} added'.format(f))
             cp(after / f, change / f)
             continue
+
         if files_differ(before / f, after / f):
-            print('\nchanges in {}:'.format(f))
-            patch_changed_lines(before / f, after / f, change / f)
+            patch_changed_lines(before / f, after / f, change / f,
+                                header='changes in {}:'.format(f))
 
 if __name__ == '__main__':
     tmpdir = Path(TMPDIR)
