@@ -75,7 +75,7 @@ def set_config_line(config, section, key, value):
 def WeechatConfigParser(in_file):
 
     # weechat's formatting specification
-    wcp = RawConfigParser(delimiters=['='], comment_prefixes=['#'],
+    wcp = RawConfigParser(delimiters=[' = '], comment_prefixes=['#'],
                           allow_no_value=True, interpolation=None,
                           empty_lines_in_values=False)
 
@@ -129,7 +129,7 @@ def patch_changed_lines(before_file, after_file, change_file, header=''):
                 set_config_line(change, section, key, value)
 
     with change_file.open('w') as f:
-        change.write(f, space_around_delimiters=True)
+        change.write(f, space_around_delimiters=False)
     truncate_file(change_file)
 
 def patch_changed_config_dirs(before, after, change):
