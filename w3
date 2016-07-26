@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+#
 # w3: the wee weechat wrapper
 #
 # weechat vomits configuration defaults all over your config dir. this has
@@ -19,7 +20,9 @@
 #   - harder to find similar settings (since not all settings are written)
 #   - config files are re-parsed (spacing is different, for example)
 #   - bugs?
-###############################################################################
+#
+# copyright (c) Quint Guvernator <quint@guvernator.net> distributed as free
+# software under the GPL3. see LICENSE file for details.
 
 TMPDIR = '/tmp/w3'
 VERSION = '0.1.0' # will probably not break computer, but may break weechat
