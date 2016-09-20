@@ -25,13 +25,13 @@
 # software under the GPL3. see LICENSE file for details.
 
 TMPDIR = '/tmp/w3'
-VERSION = '0.1.0' # will probably not break computer, but may break weechat
+VERSION = '0.2.0' # will probably not break computer, but may break weechat
 
 from configparser import RawConfigParser, DuplicateSectionError, DEFAULTSECT
 from os import getenv
 from pathlib import Path
 from subprocess import check_call, call, DEVNULL
-from sys import exit
+from sys import argv, exit
 from threading import Thread
 from time import sleep
 
@@ -61,8 +61,8 @@ def real_weechat_dir():
     weechat_home.mkdir(parents=True, exist_ok=True)
     return weechat_home
 
-def weechat(weechat_home):
-    call(['weechat', '-d', str(weechat_home), '-r', '/save; /buffer clear'])
+def weechat(weechat_home, args=[]):
+    call(['weechat', *args, '-d', str(weechat_home), '-r', '/save; /buffer clear'])
 
 def make_sneaky_copy(live_dir, freeze_dir):
     sleep(2)
@@ -163,7 +163,7 @@ if __name__ == '__main__':
     snapshotter = Thread(target=make_sneaky_copy, args=(dirty, snapshot))
     snapshotter.start()
 
-    weechat(dirty)
+    weechat(dirty, args=argv[1:] if len(argv) > 1 else [])
     quick_exit = snapshotter.is_alive()
     if quick_exit:
         print('Weechat exited too quickly. Config not patched. Sit tight...')
