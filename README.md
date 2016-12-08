@@ -1,5 +1,13 @@
 # w3: the wee weechat wrapper
 
+## usage
+
+run `w3` as you would run `weechat`. put it somewhere that's in your `$PATH`
+if you want to run it unqualified. it takes all the options weechat does,
+except `-d` (use `$XDG_CONFIG_HOME` instead).
+
+## why
+
 weechat vomits configuration defaults all over your config dir. this has
 several disadvantages:
 
@@ -18,6 +26,8 @@ them AND ONLY THEM. note that this also has several disadvantages:
   - harder to find similar settings (since not all settings are written)
   - config files are re-parsed (spacing is different, for example)
   - bugs?
+
+---
 
 copyright (c) Quint Guvernator, distributed as free software under the GPL3.
 see LICENSE file for details.
