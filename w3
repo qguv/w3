@@ -45,7 +45,7 @@ def cp_tree(src, dest):
     '''Replaces dest with a copy of src.'''
     rm_tree(dest)
     dest.parent.mkdir(parents=True, exist_ok=True)
-    check_call(['cp', '-r', str(src), str(dest)])
+    check_call(['cp', '-Lr', str(src), str(dest)])
 
 def files_differ(a, b):
     return bool(call(['diff', str(a), str(b)], stdout=DEVNULL))
