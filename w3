@@ -51,10 +51,10 @@ def files_differ(a, b):
     return bool(call(['diff', str(a), str(b)], stdout=DEVNULL))
 
 def xdg_config_home():
-    xdg_config_home = Path(getenv('XDG_CONFIG_HOME'))
-    if xdg_config_home is None:
-        xdg_config_home = Path(getenv('HOME')) / '.config'
-    return xdg_config_home
+    p = getenv('XDG_CONFIG_HOME')
+    if p is None:
+        return Path(getenv('HOME')) / '.config'
+    return Path(p)
 
 def real_weechat_dir():
     weechat_home = xdg_config_home() / 'weechat'
