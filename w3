@@ -160,14 +160,15 @@ if __name__ == '__main__':
     # create a snapshot of the dirty directory after weechat starts, before we
     # get the chance to interactively modify any settings
     snapshot = tmpdir / 'snapshot'
-    snapshotter = Thread(target=make_sneaky_copy, args=(dirty, snapshot))
+    snapshotter = Thread(target=make_sneaky_copy, args=(dirty, snapshot), daemon=True)
     snapshotter.start()
 
     weechat(dirty, args=argv[1:] if len(argv) > 1 else [])
     quick_exit = snapshotter.is_alive()
     if quick_exit:
         print('Weechat exited too quickly. Config not patched. Sit tight...')
-    snapshotter.join()
+    else:
+        snapshotter.join()
 
     if not quick_exit:
         patch_changed_config_dirs(snapshot, dirty, clean)
